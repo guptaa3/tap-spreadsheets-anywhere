@@ -3,7 +3,7 @@ import unittest
 import dateutil
 from io import StringIO
 from tap_spreadsheets_anywhere import configuration, file_utils, csv_handler, json_handler
-from tap_spreadsheets_anywhere.format_handler import get_row_iterator
+from tap_spreadsheets_anywhere.format_handler import get_row_iterator, InvalidFormatError
 
 TEST_TABLE_SPEC = {
     "tables": [
@@ -100,3 +100,37 @@ class TestFormatHandler(unittest.TestCase):
             records_synced = file_utils.write_file('empty.json', EMPTY_FILE_TABLE_SPEC, schema)
         self.assertEqual(records_synced, 0)
         mock_write.assert_not_called()
+
+    def test_empty_file_action_ignore_is_default(self):
+        """empty_file_action defaults to 'ignore': empty file yields zero records."""
+        reader = StringIO('')
+        iterator = json_handler.get_row_iterator(TEST_TABLE_SPEC['tables'][0], reader)
+        self.assertEqual(list(iterator), [])
+
+    def test_empty_file_action_ignore_explicit(self):
+        """empty_file_action='ignore' explicitly: empty file yields zero records."""
+        table_spec = {**TEST_TABLE_SPEC['tables'][0], 'empty_file_action': 'ignore'}
+        reader = StringIO('')
+        iterator = json_handler.get_row_iterator(table_spec, reader)
+        self.assertEqual(list(iterator), [])
+
+    def test_empty_file_action_fail(self):
+        """empty_file_action='fail': empty file raises InvalidFormatError."""
+        table_spec = {**TEST_TABLE_SPEC['tables'][0], 'empty_file_action': 'fail'}
+        reader = StringIO('')
+        with self.assertRaises(InvalidFormatError):
+            json_handler.get_row_iterator(table_spec, reader)
+
+    def test_empty_file_action_fail_whitespace_only(self):
+        """empty_file_action='fail': whitespace-only file raises InvalidFormatError."""
+        table_spec = {**TEST_TABLE_SPEC['tables'][0], 'empty_file_action': 'fail'}
+        reader = StringIO('   \n  \n  ')
+        with self.assertRaises(InvalidFormatError):
+            json_handler.get_row_iterator(table_spec, reader)
+
+    def test_empty_file_action_fail_via_fixture(self):
+        """empty_file_action='fail': real 0-byte fixture raises InvalidFormatError."""
+        table_spec = {**EMPTY_FILE_TABLE_SPEC, 'empty_file_action': 'fail'}
+        uri = './tap_spreadsheets_anywhere/test/empty.json'
+        with self.assertRaises(InvalidFormatError):
+            list(get_row_iterator(table_spec, uri))

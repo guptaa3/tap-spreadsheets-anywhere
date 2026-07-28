@@ -26,6 +26,9 @@ def get_row_iterator(table_spec, reader):
     try:
         content = reader.read()
         if not content or not content.strip():
+            if table_spec.get('empty_file_action', 'ignore').lower() == 'fail':
+                from tap_spreadsheets_anywhere.format_handler import InvalidFormatError
+                raise InvalidFormatError("File is empty.")
             LOGGER.info("Skipping empty file.")
             return generator_wrapper(iter([]))
         json_array = json.loads(content)
