@@ -3,6 +3,7 @@ import json
 import logging
 import unittest
 from datetime import datetime
+from io import StringIO as NativeStringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -133,6 +134,28 @@ class TestFormatHandler(unittest.TestCase):
 
         for row in iterator:
             self.assertTrue(row['id'].isnumeric(), "Parsed ID is not a number for: {}".format(row['id']))
+
+    def test_csv_escaped_embedded_quotes(self):
+        """Backslash-escaped embedded quotes (e.g. MDM exports) should not shift columns
+        when `escapechar` is configured and `doublequote` is disabled."""
+        table_spec = {
+            "delimiter": ",",
+            "quotechar": '"',
+            "escapechar": "\\",
+            "doublequote": False,
+        }
+        content = (
+            '"name","address"\n'
+            r'"My \"O\" Management Services, Inc.","309 Resource Avenue"' + '\n'
+            r'"Plain Co","shar\" al-amir"' + '\n'
+        )
+        iterator = csv_handler.get_row_iterator(table_spec, NativeStringIO(content))
+        rows = list(iterator)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['name'], 'My "O" Management Services, Inc.')
+        self.assertEqual(rows[0]['address'], '309 Resource Avenue')
+        self.assertEqual(rows[1]['address'], 'shar" al-amir')
 
     def test_strip_newlines_monkey_patch_locally(self):
         """Load the file in binary mode to force the use of StreamHandler and the monkey patch"""
