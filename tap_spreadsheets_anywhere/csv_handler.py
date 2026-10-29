@@ -38,10 +38,15 @@ def get_row_iterator(table_spec, reader):
     else:
         custom_delimiter = table_spec.get('delimiter', ',')
         custom_quotechar = table_spec.get('quotechar', '"')
-        if custom_delimiter != ',' or custom_quotechar != '"':
+        custom_escapechar = table_spec.get('escapechar', None)
+        custom_doublequote = table_spec.get('doublequote', True)
+        if (custom_delimiter != ',' or custom_quotechar != '"' or
+                custom_escapechar is not None or custom_doublequote is not True):
             class custom_dialect(csv.excel):
                 delimiter = custom_delimiter
                 quotechar = custom_quotechar
+                escapechar = custom_escapechar
+                doublequote = custom_doublequote
             dialect = 'custom_dialect'
             csv.register_dialect(dialect, custom_dialect)
 
